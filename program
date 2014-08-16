@@ -1,0 +1,274 @@
+#include <SPI.h>
+#include <Ethernet.h>
+#include <EthernetDNS.h>
+#include <LiquidCrystal.h>
+#include <Twitter.h>
+
+#define encendido 1
+#define iluminacionEncendida 2
+#define iluminacionApagada 3
+#define automaticoEncendido 4
+#define automaticoApagado 5
+#define persianasSubidas 6
+#define persianasBajadas 7
+#define mensajeOK 200
+#define luzMedia 600
+
+byte mac[] = {0x90, 0xA2, 0xDA, 0x0E, 0x09, 0x2D}; //MAC
+IPAddress ip(192, 168, 1, 111); //IP
+EthernetServer servidor(80);
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+Twitter twitter("2389536108-ivbusXpJ43c3WjBium1hz4NxwwbJQx0CPV57eAM");
+
+int pinLed = 11, pinPerSub = 9, pinPerBaj = 8, pinLuz = 0, pinTemperatura = 1;
+String readString = String(30);
+String stateLed = String(3), statePer = String(6), stateAut = String(3);
+boolean luzApagada = true, clienteConectado = false;
+int luz = 0;
+
+char tweet[30];
+char msgConectado[30] = "Arduino conectado";
+char msgLuzEncendida[30] = "Iluminación encendida";
+char msgLuzApagada[30] = "Iluminación apagada";
+char msgAutomaticoEncendido[30] = "Automático encendido";
+char msgAutomaticoApagado[30] = "Automático apagado";
+char msgPersianasSubidas[30] = "Persianas subidas";
+char msgPersianasBajadas[30] = "Persianas bajadas";
+
+void setup()
+{
+	Ethernet.begin(mac, ip);
+	servidor.begin();
+	pinMode(pinLed, OUTPUT);
+	pinMode(pinPerSub, OUTPUT);
+	pinMode(pinPerBaj, OUTPUT);
+	pinMode(pinLuz, INPUT);
+	pinMode(pinTemperatura, INPUT);
+	stateLed = "OFF";
+	statePer = "BAJADA";
+	stateAut = "OFF";
+	lcd.begin(16, 2);
+	Serial.begin(9600);
+	
+	//Envio mensaje conexión arduino
+	twitear(encendido);
+	escribirLCD("ENCENDIDO");
+}
+
+void loop()
+{
+	comprobarWeb();
+	comprobarLuz();
+}
+
+void comprobarWeb()
+{
+	int LED, AUT, PER;
+	EthernetClient cliente = servidor.available();
+	clienteConectado = true;
+	if(cliente)
+	{
+		boolean lineaenblanco = true;
+		while(cliente.connected())
+		{
+			if(cliente.available())
+			{
+				char c = cliente.read();
+				if(readString.length() < 30)
+				{
+					readString.concat(c);
+				}
+				if(c == '\n' && lineaenblanco)
+				{
+					LED = readString.indexOf("LED=");
+					AUT=readString.indexOf("AUT=");
+					PER = readString.indexOf("PER=");
+					if(readString.substring(LED, LED + 5) == "LED=T")
+					{
+						digitalWrite(pinLed, HIGH);
+						stateLed = "ON";
+						luzApagada = false;
+						twitear(iluminacionEncendida);
+						escribirLCD("Iluminacion ON");
+					}
+					else if (readString.substring(LED, LED + 5) == "LED=F")
+					{
+						digitalWrite(pinLed, LOW);
+						stateLed = "OFF";
+						luzApagada = true;
+						twitear(iluminacionApagada);
+						escribirLCD("Iluminacion OFF");
+					}
+					
+					if(readString.substring(AUT, AUT + 5) == "AUT=T")
+					{
+						stateAut = "ON";
+						twitear(automaticoEncendido);
+						escribirLCD("Automatico ON");
+					}
+					else if (readString.substring(AUT, AUT + 5) == "AUT=F")
+					{
+						stateAut = "OFF";
+						digitalWrite(pinLed, LOW);
+						twitear(automaticoApagado);
+						escribirLCD("Automatico OFF");
+					}
+					
+					if(readString.substring(PER, PER + 5) == "PER=T")
+					{
+						digitalWrite(pinPerSub, HIGH);
+						statePer = "SUBIDA";
+						delay(400);
+						digitalWrite(pinPerSub, LOW);
+						twitear(persianasSubidas);
+						escribirLCD("Persianas ON");
+					}
+					else if (readString.substring(PER, PER + 5) == "PER=F")
+					{
+						digitalWrite(pinPerBaj, HIGH);
+						statePer = "BAJADA";
+						delay(400);
+						digitalWrite(pinPerBaj, LOW);
+						twitear(persianasBajadas);
+						escribirLCD("Persianas OFF");
+					}
+
+					cliente.println("HTTP/1.1 200 OK");
+					cliente.println("Content-Type: text/html");
+					cliente.println();
+
+					cliente.println("<html>");
+					cliente.println("<head>");
+					cliente.println("<title>LAMPARA, PERSIANA Y BOCINA</title>");
+					cliente.println("</head>");
+					cliente.println("<body width=100% height=100%>");
+					cliente.println("<center>");
+					cliente.println("<h3>LAMPARA 1 ON/OFF</h3>");
+					cliente.print("<br>");
+					cliente.print("Estado de la lampara: ");
+					cliente.print(stateLed);
+					cliente.print("<br>");
+					cliente.println("<input type=submit value=ON style=width:200px;height:75px onClick=location.href='./?LED=T\'>");
+					cliente.println("<input type=submit value=OFF style=width:200px;height:75px onClick=location.href='./?LED=F\'>");
+					cliente.println("<h3>ENCENDIDO AUTOMATICO DE LUCES ON/OFF</h3>");
+					cliente.print("<br>");
+					cliente.print("Estado del automatico: ");
+					cliente.print(stateAut);
+					cliente.print("<br>");
+					cliente.println("<input type=submit value=ON style=width:200px;height:75px onClick=location.href='./?AUT=T\'>");
+					cliente.println("<input type=submit value=OFF style=width:200px;height:75px onClick=location.href='./?AUT=F\'>");
+					cliente.println("<br><br>");
+					cliente.println("<h3>PERSIANA SUBIDA/BAJADA</h3>");
+					cliente.print("<br>");
+					cliente.print("Estado de la persiana: ");
+					cliente.print(statePer);
+					cliente.print("<br>");
+					cliente.println("<input type=submit value=ON style=width:200px;height:75px onClick=location.href='./?PER=T\'>");
+					cliente.println("<input type=submit value=OFF style=width:200px;height:75px onClick=location.href='./?PER=F\'>");
+					cliente.println("<br><br>");
+					cliente.println("</center>");
+					cliente.println("</body>");
+					cliente.println("</html>");
+					cliente.stop();
+					readString = "";
+				}
+			}
+		}
+	}
+}
+
+void comprobarLuz()
+{
+	luz = analogRead(pinLuz);
+	Serial.println(luz);
+	if(luz > luzMedia && luzApagada == true && stateAut == "ON")
+	{
+		digitalWrite(pinLed, HIGH);
+		luzApagada = false;
+	}
+	else if(luz <= luzMedia && luzApagada == false && stateAut == "ON")
+	{
+		digitalWrite(pinLed, LOW);
+		luzApagada = true;
+	}
+}
+
+void escribirLCD(char mensaje[])
+{
+	lcd.clear();
+	lcd.print(mensaje);
+}
+
+void twitear(int n)
+{
+	switch(n)
+	{
+		case 1:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgConectado[i];
+		}
+		break;
+		
+		case 2:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgLuzEncendida[i];
+		}
+		break;
+		
+		case 3:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgLuzApagada[i];
+		}
+		break;
+		
+		case 4:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgAutomaticoEncendido[i];
+		}
+		break;
+		
+		case 5:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgAutomaticoApagado[i];
+		}
+		break;
+		
+		case 6:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgPersianasSubidas[i];
+		}
+		break;
+		
+		case 7:
+		for(int i=0; i<30; i++)
+		{
+			tweet[i]=msgPersianasBajadas[i];
+		}
+		break;
+	}
+	
+	Serial.println("connecting ...");
+	if (twitter.post(tweet))
+	{
+		int status = twitter.wait(&Serial);
+		if (status == mensajeOK)
+		{
+			Serial.println("OK.");
+		}
+		else
+		{
+			Serial.print("failed : code ");
+			Serial.println(status);
+		}
+	}
+	else
+	{
+		Serial.println("connection failed.");
+	} 
+}
