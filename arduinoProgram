@@ -43,13 +43,13 @@ boolean luzApagada = true, clienteConectado = false;
 int luz = 0;
 
 char tweet[30];
-char msgConectado[30] = "Arduino conectado";
-char msgLuzEncendida[30] = "Iluminación encendida";
-char msgLuzApagada[30] = "Iluminación apagada";
-char msgAutomaticoEncendido[30] = "Automático encendido";
-char msgAutomaticoApagado[30] = "Automático apagado";
-char msgPersianasSubidas[30] = "Persianas subidas";
-char msgPersianasBajadas[30] = "Persianas bajadas";
+char msgConectado[30] = "Arduino connected";
+char msgLuzEncendida[30] = "Lights turn ON";
+char msgLuzApagada[30] = "Lights turn OFF";
+char msgAutomaticoEncendido[30] = "Automatic ON";
+char msgAutomaticoApagado[30] = "Automatic OFF";
+char msgPersianasSubidas[30] = "Blinds up";
+char msgPersianasBajadas[30] = "Blinds down";
 
 void setup()
 {
@@ -61,14 +61,14 @@ void setup()
 	pinMode(pinLuz, INPUT);
 	pinMode(pinTemperatura, INPUT);
 	stateLed = "OFF";
-	statePer = "BAJADA";
+	statePer = "DOWN";
 	stateAut = "OFF";
 	lcd.begin(16, 2);
 	Serial.begin(9600);
 	
 	//Envio mensaje conexión arduino
 	twitear(encendido);
-	escribirLCD("ENCENDIDO");
+	escribirLCD("Arduino ON");
 }
 
 void loop()
@@ -105,7 +105,7 @@ void comprobarWeb()
 						stateLed = "ON";
 						luzApagada = false;
 						twitear(iluminacionEncendida);
-						escribirLCD("Iluminacion ON");
+						escribirLCD("Lights ON");
 					}
 					else if (readString.substring(LED, LED + 5) == "LED=F")
 					{
@@ -113,40 +113,40 @@ void comprobarWeb()
 						stateLed = "OFF";
 						luzApagada = true;
 						twitear(iluminacionApagada);
-						escribirLCD("Iluminacion OFF");
+						escribirLCD("Lights OFF");
 					}
 					
 					if(readString.substring(AUT, AUT + 5) == "AUT=T")
 					{
 						stateAut = "ON";
 						twitear(automaticoEncendido);
-						escribirLCD("Automatico ON");
+						escribirLCD("Automatic ON");
 					}
 					else if (readString.substring(AUT, AUT + 5) == "AUT=F")
 					{
 						stateAut = "OFF";
 						digitalWrite(pinLed, LOW);
 						twitear(automaticoApagado);
-						escribirLCD("Automatico OFF");
+						escribirLCD("Automatic OFF");
 					}
 					
 					if(readString.substring(PER, PER + 5) == "PER=T")
 					{
 						digitalWrite(pinPerSub, HIGH);
-						statePer = "SUBIDA";
+						statePer = "UP";
 						delay(400);
 						digitalWrite(pinPerSub, LOW);
 						twitear(persianasSubidas);
-						escribirLCD("Persianas ON");
+						escribirLCD("Blinds UP");
 					}
 					else if (readString.substring(PER, PER + 5) == "PER=F")
 					{
 						digitalWrite(pinPerBaj, HIGH);
-						statePer = "BAJADA";
+						statePer = "DOWN";
 						delay(400);
 						digitalWrite(pinPerBaj, LOW);
 						twitear(persianasBajadas);
-						escribirLCD("Persianas OFF");
+						escribirLCD("Blinds DOWN");
 					}
 
 					cliente.println("HTTP/1.1 200 OK");
@@ -155,32 +155,32 @@ void comprobarWeb()
 
 					cliente.println("<html>");
 					cliente.println("<head>");
-					cliente.println("<title>LAMPARA, PERSIANA Y BOCINA</title>");
+					cliente.println("<title>Home automation system with Twitter</title>");
 					cliente.println("</head>");
 					cliente.println("<body width=100% height=100%>");
 					cliente.println("<center>");
-					cliente.println("<h3>LAMPARA 1 ON/OFF</h3>");
+					cliente.println("<h3>LIGHTS ON/OFF</h3>");
 					cliente.print("<br>");
-					cliente.print("Estado de la lampara: ");
+					cliente.print("State: ");
 					cliente.print(stateLed);
 					cliente.print("<br>");
 					cliente.println("<input type=submit value=ON style=width:200px;height:75px onClick=location.href='./?LED=T\'>");
 					cliente.println("<input type=submit value=OFF style=width:200px;height:75px onClick=location.href='./?LED=F\'>");
-					cliente.println("<h3>ENCENDIDO AUTOMATICO DE LUCES ON/OFF</h3>");
+					cliente.println("<h3>AUTOMATIC MODE ON/OFF</h3>");
 					cliente.print("<br>");
-					cliente.print("Estado del automatico: ");
+					cliente.print("State: ");
 					cliente.print(stateAut);
 					cliente.print("<br>");
 					cliente.println("<input type=submit value=ON style=width:200px;height:75px onClick=location.href='./?AUT=T\'>");
 					cliente.println("<input type=submit value=OFF style=width:200px;height:75px onClick=location.href='./?AUT=F\'>");
 					cliente.println("<br><br>");
-					cliente.println("<h3>PERSIANA SUBIDA/BAJADA</h3>");
+					cliente.println("<h3>BLINDS UP/DOWN</h3>");
 					cliente.print("<br>");
-					cliente.print("Estado de la persiana: ");
+					cliente.print("State: ");
 					cliente.print(statePer);
 					cliente.print("<br>");
-					cliente.println("<input type=submit value=ON style=width:200px;height:75px onClick=location.href='./?PER=T\'>");
-					cliente.println("<input type=submit value=OFF style=width:200px;height:75px onClick=location.href='./?PER=F\'>");
+					cliente.println("<input type=submit value=UP style=width:200px;height:75px onClick=location.href='./?PER=T\'>");
+					cliente.println("<input type=submit value=DOWN style=width:200px;height:75px onClick=location.href='./?PER=F\'>");
 					cliente.println("<br><br>");
 					cliente.println("</center>");
 					cliente.println("</body>");
