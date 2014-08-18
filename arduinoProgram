@@ -20,6 +20,7 @@
 #include <LiquidCrystal.h>
 #include <Twitter.h>
 
+//Define the messages for the Twitter posts
 #define arduinoOn 1
 #define lightsOn 2
 #define lightsOff 3
@@ -27,21 +28,34 @@
 #define automaticOff 5
 #define blindsUp 6
 #define blindsDown 7
+
+//Define the default values for this parameters
 #define messageOK 200
 #define lightAmount 600
 
+//MAC from the Ethernet Shield
 byte mac[] = {0x90, 0xA2, 0xDA, 0x0E, 0x09, 0x2D}; //MAC
+
+//Local IP for the control panel
 IPAddress ip(192, 168, 1, 111); //IP
+
+//Define an ethernet server
 EthernetServer server(80);
+
+//Pins for the LCD
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+
+//Token from the Twitter account
 Twitter twitter("2389536108-ivbusXpJ43c3WjBium1hz4NxwwbJQx0CPV57eAM");
 
+//Define pins
 int pinLed = 11, pinBliUp = 9, pinBliDow = 8, pinLight = 0, pinTemBLIature = 1;
 String readString = String(30);
 String stateLed = String(3), stateBli = String(6), stateAut = String(3);
 boolean stateLightsOff = true, connectedClient = false;
 int light = A0;
 
+//Define variables for the Twitter posts
 char tweet[30];
 char msgArduinoOn[30] = "Arduino connected";
 char msgLightsOn[30] = "Lights turn ON";
@@ -53,33 +67,50 @@ char msgBlindsDown[30] = "Blinds down";
 
 void setup()
 {
+	//Start the Ethernet
 	Ethernet.begin(mac, ip);
+	
+	//Start the server
 	server.begin();
+	
+	//Configuration for the pins
 	pinMode(pinLed, OUTPUT);
 	pinMode(pinBliUp, OUTPUT);
 	pinMode(pinBliDow, OUTPUT);
 	pinMode(pinLight, INPUT);
 	pinMode(pinTemBLIature, INPUT);
+	
+	//Initialization of state variables
 	stateLed = "OFF";
 	stateBli = "DOWN";
 	stateAut = "OFF";
+	
+	//Initialization for the LCD
 	lcd.begin(16, 2);
+	
+	//Initialization for the Serial Port
 	Serial.begin(9600);
 	
-	//Envio mensaje conexión arduino
+	//Post message Arduino ON
 	postTweet(arduinoOn);
 	printLCD("Arduino ON");
 }
 
 void loop()
 {
-	comprobarWeb();
+	//Check for changes in the web page
+	checkWeb();
+	
+	//Check the LDR
 	checkLight();
 }
 
-void comprobarWeb()
+void checkWeb()
 {
+	//Variables to read the state of the buttons from the web
 	int LED, AUT, BLI;
+	
+	//Creation of the client
 	EthernetClient client = server.available();
 	connectedClient = true;
 	if(client)
@@ -96,9 +127,12 @@ void comprobarWeb()
 				}
 				if(c == '\n' && whiteLine)
 				{
+					//Here the variables catch the values
 					LED = readString.indexOf("LED=");
 					AUT=readString.indexOf("AUT=");
 					BLI = readString.indexOf("BLI=");
+					
+					//Here check the different values of the variables
 					if(readString.substring(LED, LED + 5) == "LED=T")
 					{
 						digitalWrite(pinLed, HIGH);
@@ -148,7 +182,8 @@ void comprobarWeb()
 						postTweet(blindsDown);
 						printLCD("Blinds DOWN");
 					}
-
+					
+					//Here is the web page code
 					client.println("HTTP/1.1 200 OK");
 					client.println("Content-Type: text/html");
 					client.println();
@@ -195,8 +230,13 @@ void comprobarWeb()
 
 void checkLight()
 {
+	//Read the value from the LDR
 	light = analogRead(pinLight);
+	
+	//Print the value to the Serial Port
 	Serial.println(light);
+	
+	//Check if the automatic mode is ON
 	if(light > lightAmount && stateLightsOff == true && stateAut == "ON")
 	{
 		digitalWrite(pinLed, HIGH);
@@ -209,14 +249,18 @@ void checkLight()
 	}
 }
 
-void printLCD(char mensaje[])
+void printLCD(char message[])
 {
+	//Clear the LCD
 	lcd.clear();
-	lcd.print(mensaje);
+	
+	//Write into the LCD the message
+	lcd.print(message);
 }
 
 void postTweet(int n)
 {
+	//Check the value of n and write the message depending this value
 	switch(n)
 	{
 		case 1:
